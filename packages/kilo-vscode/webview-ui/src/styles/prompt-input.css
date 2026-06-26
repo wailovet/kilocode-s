@@ -536,6 +536,90 @@
   }
 }
 
+.prompt-fi-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.prompt-fi-toolbar [data-component="button"] {
+  min-height: 22px;
+}
+
+.prompt-fi-state {
+  max-width: 160px;
+}
+
+.prompt-fi-state--enabled {
+  border-color: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 35%, transparent) !important;
+}
+
+.prompt-fi-state--analysis {
+  color: var(--vscode-charts-yellow, #cca700) !important;
+}
+
+.prompt-fi-state-label,
+.prompt-fi-state-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-fi-state-value {
+  font-weight: 600;
+}
+
+.prompt-fi-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0 18px 14px;
+}
+
+.prompt-fi-dialog [data-slot="settings-row"] {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  border-bottom: none !important;
+}
+
+.prompt-fi-send {
+  display: flex;
+  flex-direction: column;
+  width: 28px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--border-weak-base, var(--vscode-panel-border));
+  background: var(--surface-base, var(--vscode-button-background));
+}
+
+.prompt-fi-send-button {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--icon-base, var(--vscode-button-foreground));
+  cursor: pointer;
+}
+
+.prompt-fi-send-button + .prompt-fi-send-button {
+  border-top: 1px solid var(--border-weak-base, var(--vscode-panel-border));
+}
+
+.prompt-fi-send-button:hover:not(:disabled),
+.prompt-fi-send-button:focus-visible {
+  background: var(--surface-base-hover, var(--vscode-toolbar-hoverBackground));
+  outline: none;
+}
+
+.prompt-fi-send-button:disabled,
+.prompt-fi-send-button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .prompt-indexing-button {
   position: relative;
 

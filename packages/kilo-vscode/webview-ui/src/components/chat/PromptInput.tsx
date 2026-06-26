@@ -23,6 +23,7 @@ import { ModeSwitcher } from "../shared/ModeSwitcher"
 import { SpeechToTextButton } from "../speech-to-text/SpeechToTextButton"
 import { canUseSpeechToText, selectedSpeechToTextModel } from "../speech-to-text/availability"
 import { ThinkingSelector } from "../shared/ThinkingSelector"
+import { useFiWorkflow } from "./fi-workflow-integration"
 import { useFileMention } from "../../hooks/useFileMention"
 import { useTerminalContext } from "../../hooks/useTerminalContext"
 import { useGitChangesContext } from "../../hooks/useGitChangesContext"
@@ -223,6 +224,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const ghost = useGhostText(vscode, text, () => server.isConnected())
   const speech = useSpeechToText(vscode, server, language)
+  const fi = useFiWorkflow({
+    getText: text,
+    setText,
+    hasInput: () => hasInput(),
+    isBusy: () => isBusy(),
+    canSend: () => canSend(),
+  })
 
   const replaceReviewComments = (next: ReviewComment[]) => {
     setReviewComments(next)
@@ -941,6 +949,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (textareaRef) textareaRef.style.height = "auto"
   }
 
+  fi.setSend(handleSend)
+
   return (
     <div
       class="prompt-input-container"
@@ -1150,6 +1160,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           <ModeSwitcher sessionID={sid} />
           <ModelSelector sessionID={sid} />
           <ThinkingSelector sessionID={sid} />
+          <fi.Toolbar />
           <Show when={session.hasModelOverride(sid())}>
             <Tooltip value={language.t("prompt.action.resetModel")} placement="top">
               <Button
@@ -1262,6 +1273,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           <Show when={canUseSpeech()}>
             <SpeechToTextButton speech={speech} disabled={isDisabled()} start={startSpeech} label={language.t} />
           </Show>
+          <fi.SendButton />
           <Show
             when={showStop()}
             fallback={
