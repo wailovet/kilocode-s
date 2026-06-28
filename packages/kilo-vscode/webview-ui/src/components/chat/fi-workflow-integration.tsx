@@ -17,7 +17,7 @@ export function useFiWorkflow(opts: UseFiWorkflowOptions) {
     fi.enabled() && fi.state() === "analysis" && opts.hasInput() && !opts.isBusy()
 
   const handleFiDefault = async () => {
-    if (!canSendFiDefault() || !opts.canSend() || !doSend) return
+    if (!fi.enabled() || !opts.canSend() || !doSend) return
     const raw = opts.getText()
     const prefixed = withFiDefault(raw)
     opts.setText(prefixed)
@@ -32,7 +32,7 @@ export function useFiWorkflow(opts: UseFiWorkflowOptions) {
         e.key !== "Enter" ||
         e.shiftKey ||
         e.altKey ||
-        !canSendFiDefault()
+        !fi.enabled()
       )
         return
       e.preventDefault()

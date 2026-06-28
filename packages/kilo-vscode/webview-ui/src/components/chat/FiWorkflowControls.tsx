@@ -8,6 +8,7 @@ import { Tooltip } from "@kilocode/kilo-ui/tooltip"
 import { useDialog } from "@kilocode/kilo-ui/context/dialog"
 import SettingsRow from "../settings/SettingsRow"
 import { useVSCode } from "../../context/vscode"
+import { useSession } from "../../context/session"
 
 export type FiState = "analysis" | "default"
 
@@ -59,13 +60,29 @@ export const FiWorkflowControls: Component<{
 }> = (props) => {
   const dialog = useDialog()
   const vscode = useVSCode()
+  const session = useSession()
+  const [localMode, setLocalMode] = createSignal<FiState>(props.state())
   let rowRef: HTMLDivElement | undefined
 
   onMount(() => {
-    ;(vscode as any).postMessage({ type: "fiGetConfig" })
+    const poll = () => {
+      const sid = session.currentSessionID()
+      console.log("[FI] polling fiGetConfig sessionID:", sid)
+      ;(vscode as any).postMessage({ type: "fiGetConfig", sessionID: sid ?? undefined })
+    }
+    poll()
+    const timer = setInterval(poll, 3000)
+    onCleanup(() => clearInterval(timer))
+
     const unsub = (vscode as any).onMessage((msg: any) => {
-      if (msg.type === "fiConfig" && msg.enabled !== props.enabled()) {
-        props.onEnabledChange(msg.enabled)
+      if (msg.type === "fiConfig") {
+        console.log("[FI] fiConfig received:", JSON.stringify(msg))
+        if (msg.sessionID === session.currentSessionID()) {
+          const prevMode = localMode()
+          setLocalMode(msg.status?.analysis === true ? "analysis" : "default")
+          if (msg.enabled !== props.enabled()) props.onEnabledChange(msg.enabled)
+          console.log("[FI] state updated: mode:", prevMode, "->", msg.status?.analysis === true ? "analysis" : "default")
+        }
       }
       return false
     })
@@ -86,7 +103,7 @@ export const FiWorkflowControls: Component<{
     })
   })
 
-  const change = (next: boolean) => {
+  const persistEnabled = (next: boolean) => {
     props.onEnabledChange(next)
     ;(vscode as any).postMessage({ type: "fiSetConfig", enabled: next })
   }
@@ -94,32 +111,29 @@ export const FiWorkflowControls: Component<{
   const sendFiDefault = () => {
     const el = document.querySelector<HTMLTextAreaElement>(".prompt-input")
     if (!el || !el.value.trim()) return
-    el.value = withFiDefault(el.value)
-    el.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true }))
-    requestAnimationFrame(() => {
-      el.dispatchEvent(new KeyboardEvent("keydown", {
-        key: "Enter",
-        code: "Enter",
-        bubbles: true,
-        cancelable: true,
-      }))
-    })
+    el.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter",
+      code: "Enter",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    }))
   }
 
   const status = () => {
     if (!props.enabled()) return "关闭"
-    return props.state() === "analysis" ? "分析" : "默认"
+    return localMode() === "analysis" ? "分析" : "默认"
   }
   const tip = () => {
     if (!props.enabled()) return "分析-实施已关闭"
-    return props.state() === "analysis" ? "当前为分析阶段，可使用默认实施发送" : "首次发送后进入分析阶段"
+    return localMode() === "analysis" ? "当前为分析阶段，可使用默认实施发送" : "首次发送后进入分析阶段"
   }
   const open = () => {
     dialog.show(() => (
       <FiSettingsDialog
         enabled={props.enabled}
         disabled={props.disabled}
-        onEnabledChange={change}
+        onEnabledChange={persistEnabled}
       />
     ))
   }
@@ -147,12 +161,12 @@ export const FiWorkflowControls: Component<{
           <Button
             variant="ghost"
             size="small"
-            onClick={() => change(!props.enabled())}
+            onClick={() => persistEnabled(!props.enabled())}
             disabled={props.disabled()}
             aria-label={props.enabled() ? "关闭分析-实施" : "开启分析-实施"}
             aria-pressed={props.enabled()}
             class={`prompt-fi-state ${props.enabled() ? "prompt-fi-state--enabled" : ""} ${
-              props.state() === "analysis" ? "prompt-fi-state--analysis" : ""
+              localMode() === "analysis" ? "prompt-fi-state--analysis" : ""
             }`}
           >
             <span class="prompt-fi-state-label">分析-实施:</span>
