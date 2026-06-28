@@ -1,7 +1,4 @@
-import { Accessor, onCleanup, onMount, Show } from "solid-js"
-import { Button } from "@kilocode/kilo-ui/button"
-import { Icon } from "@kilocode/kilo-ui/icon"
-import { Tooltip } from "@kilocode/kilo-ui/tooltip"
+import { Accessor, onCleanup, onMount } from "solid-js"
 import { createFiWorkflow, FiWorkflowControls, withFiDefault } from "./FiWorkflowControls"
 
 interface UseFiWorkflowOptions {
@@ -50,12 +47,22 @@ export function useFiWorkflow(opts: UseFiWorkflowOptions) {
     doSend = fn
   }
 
+  const wrapSend = (fn: () => Promise<void>) => {
+    return async () => {
+      await fn()
+      if (fi.enabled() && fi.state() === "default") {
+        fi.setState("analysis")
+      }
+    }
+  }
+
   return {
     enabled: fi.enabled,
     setEnabled: fi.setEnabled,
     state: fi.state,
     setState: fi.setState,
     setSend,
+    wrapSend,
     Toolbar: () => (
       <FiWorkflowControls
         enabled={fi.enabled}
@@ -64,14 +71,6 @@ export function useFiWorkflow(opts: UseFiWorkflowOptions) {
         onEnabledChange={fi.setEnabled}
       />
     ),
-    SendButton: () => (
-      <Show when={canSendFiDefault()}>
-        <Tooltip value="默认实施发送 (Ctrl+Enter)" placement="top">
-          <Button variant="ghost" size="small" onClick={handleFiDefault} aria-label="默认实施发送">
-            <Icon name="arrow-undo-down" size="small" />
-          </Button>
-        </Tooltip>
-      </Show>
-    ),
+    SendButton: () => null,
   }
 }
