@@ -1,4 +1,4 @@
-import { Accessor, Component, createSignal } from "solid-js"
+import { Accessor, Component, createSignal, onCleanup, onMount, Show } from "solid-js"
 import { Button } from "@kilocode/kilo-ui/button"
 import { Card } from "@kilocode/kilo-ui/card"
 import { Dialog } from "@kilocode/kilo-ui/dialog"
@@ -7,21 +7,22 @@ import { Switch } from "@kilocode/kilo-ui/switch"
 import { Tooltip } from "@kilocode/kilo-ui/tooltip"
 import { useDialog } from "@kilocode/kilo-ui/context/dialog"
 import SettingsRow from "../settings/SettingsRow"
+import { useVSCode } from "../../context/vscode"
 
 export type FiState = "analysis" | "default"
 
 export const FI_DEFAULT_COMMAND = "/fi-analysis-implementation-default"
 
-const key = "kilo.prompt.fi.analysisImplementation.enabled"
+const KEY = "kilo.prompt.fi.enabled"
 
 function load() {
-  if (typeof window === "undefined") return true
-  return window.localStorage.getItem(key) !== "false"
+  if (typeof window === "undefined") return false
+  return window.localStorage.getItem(KEY) === "true"
 }
 
 function save(enabled: boolean) {
   if (typeof window === "undefined") return
-  window.localStorage.setItem(key, enabled ? "true" : "false")
+  window.localStorage.setItem(KEY, enabled ? "true" : "false")
 }
 
 export function withFiDefault(text: string) {
@@ -70,6 +71,24 @@ export const FiWorkflowControls: Component<{
   onEnabledChange: (enabled: boolean) => void
 }> = (props) => {
   const dialog = useDialog()
+  const vscode = useVSCode()
+
+  onMount(() => {
+    ;(vscode as any).postMessage({ type: "fiGetConfig" })
+    const unsub = (vscode as any).onMessage((msg: any) => {
+      if (msg.type === "fiConfig" && msg.enabled !== props.enabled()) {
+        props.onEnabledChange(msg.enabled)
+      }
+      return false
+    })
+    onCleanup(unsub)
+  })
+
+  const change = (next: boolean) => {
+    props.onEnabledChange(next)
+    ;(vscode as any).postMessage({ type: "fiSetConfig", enabled: next })
+  }
+
   const status = () => {
     if (!props.enabled()) return "关闭"
     return props.state() === "analysis" ? "分析" : "默认"
@@ -83,13 +102,43 @@ export const FiWorkflowControls: Component<{
       <FiSettingsDialog
         enabled={props.enabled}
         disabled={props.disabled}
-        onEnabledChange={props.onEnabledChange}
+        onEnabledChange={change}
       />
     ))
   }
 
+  const hasInput = () => {
+    const el = document.querySelector<HTMLTextAreaElement>(".prompt-input")
+    return el ? el.value.trim().length > 0 : false
+  }
+  const canFiDefault = () => props.state() === "analysis" && hasInput() && !props.disabled()
+
+  const triggerEnter = (ctrl: boolean) => {
+    const el = document.querySelector<HTMLTextAreaElement>(".prompt-input")
+    if (!el) return
+    el.focus()
+    el.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter",
+      code: "Enter",
+      ctrlKey: ctrl,
+      bubbles: true,
+      cancelable: true,
+    }))
+  }
+
   return (
-    <div class="prompt-fi-toolbar">
+    <div
+      class="prompt-fi-toolbar"
+      style={{
+        display: "flex",
+        "align-items": "center",
+        width: "100%",
+        gap: "4px",
+        "padding-top": "6px",
+        "padding-bottom": "2px",
+        "border-top": "1px solid var(--border-weak-base, var(--vscode-panel-border))",
+      }}
+    >
       <Tooltip value="FI 配置" placement="top">
         <Button variant="ghost" size="small" onClick={open} disabled={props.disabled()} aria-label="FI 配置">
           <Icon name="sliders" size="small" />
@@ -99,7 +148,7 @@ export const FiWorkflowControls: Component<{
         <Button
           variant="ghost"
           size="small"
-          onClick={() => props.onEnabledChange(!props.enabled())}
+          onClick={() => change(!props.enabled())}
           disabled={props.disabled()}
           aria-label={props.enabled() ? "关闭分析-实施" : "开启分析-实施"}
           aria-pressed={props.enabled()}
@@ -111,6 +160,14 @@ export const FiWorkflowControls: Component<{
           <span class="prompt-fi-state-value">{status()}</span>
         </Button>
       </Tooltip>
+      <div style={{ flex: 1 }} />
+      <Show when={canFiDefault()}>
+        <Tooltip value="默认实施发送 (Ctrl+Enter)" placement="top">
+          <Button variant="ghost" size="small" onClick={() => triggerEnter(true)} aria-label="默认实施发送">
+            <Icon name="arrow-undo-down" size="small" />
+          </Button>
+        </Tooltip>
+      </Show>
     </div>
   )
 }
